@@ -1,0 +1,21 @@
+-baja logica de un usuario
+CREATE TRIGGER trg_BajaLogicaUsuario
+ON Usuario
+INSTEAD OF DELETE
+AS
+BEGIN
+    UPDATE Usuario
+    SET Activo = 0,
+        FechaModificacion = GETDATE()
+    WHERE IDUsuario IN (SELECT IDUsuario FROM deleted);
+END;
+-- Actualiza la fecha de modificacion
+CREATE TRIGGER trg_ActualizacionFechaModificacion
+ON Usuario
+AFTER UPDATE
+AS
+BEGIN
+    UPDATE Usuario
+    SET FechaModificacion = GETDATE()
+    WHERE IDUsuario IN (SELECT IDUsuario FROM inserted);
+END;
