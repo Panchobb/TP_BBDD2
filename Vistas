@@ -1,0 +1,26 @@
+--crea una vista con cursos , los dias y horarios y el profesor
+CREATE VIEW vw_Cursos_Con_Profesores
+AS
+SELECT
+    C.IDCurso,
+    C.Nombre AS NombreCurso,
+    C.FechaInicio,
+    C.FechaFin,
+    C.Horario,
+    P.Nombre + ' ' + P.Apellido AS NombreProfesor
+FROM Cursos C
+INNER JOIN Profesor Pr ON C.IDProfesor = Pr.IDProfesor
+INNER JOIN Persona P ON Pr.IDPersona = P.IDPersona;
+--crea una vista con las incripciones abiertas donde muestra participantes , cursos y fecha de inscipcion
+CREATE VIEW vw_Inscripciones_Activas
+AS
+SELECT
+    I.IDInscripcion,
+    P.Nombre + ' ' + P.Apellido AS Participante,
+    C.Nombre AS Curso,
+    I.FechaInscripcion
+FROM Inscripcion I
+INNER JOIN Participante Pa ON I.IDParticipante = Pa.IDParticipante
+INNER JOIN Persona P ON Pa.IDPersona = P.IDPersona
+INNER JOIN Cursos C ON I.IDCurso = C.IDCurso
+WHERE I.Activo = 1;
