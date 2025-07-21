@@ -7,31 +7,51 @@ SELECT
     C.FechaInicio,
     C.FechaFin,
     C.Horario,
-    P.Nombre + ' ' + P.Apellido AS NombreProfesor
+    DATEDIFF(DAY, GETDATE(), C.FechaInicio) AS DiasParaInicio,
+    P.Nombre + ' ' + P.Apellido AS NombreProfesor,
+    P.Email AS EmailProfesor,
+    C.Estado AS EstadoCurso,
+    C.CupoMaximo - (SELECT COUNT(*) FROM Inscripcion I WHERE I.IDCurso = C.IDCurso AND I.Activo = 1) AS CuposDisponibles
 FROM Cursos C
-INNER JOIN Profesor Pr ON C.IDProfesor = Pr.IDProfesor
-INNER JOIN Persona P ON Pr.IDPersona = P.IDPersona;
---crea una vista con las incripciones abiertas donde muestra participantes , cursos y fecha de inscipcion
+INNER JOIN Profesor Pr ON C.IDProfesor = Pr.IDProfesor AND Pr.Activo = 1
+INNER JOIN Persona P ON Pr.IDPersona = P.IDPersona AND P.Activo = 1
+WHERE C.Activo = 1;
+-- mustra las acciones solidarias por participante
+CREATE VIEW vw_AccionesSolidarias
+AS
+SELECT
+    A.IDAccion,
+    Pe.Nombre + ' ' + Pe.Apellido AS Participante,
+    A.NombreAccion,
+    A.Fecha,
+    FORMAT(A.Fecha, 'dd/MM/yyyy') AS FechaFormateada,
+    A.Descripcion,
+    DATEDIFF(DAY, A.Fecha, GETDATE()) AS DiasDesdeAccion,
+    (SELECT COUNT(*) FROM MencionEspecial ME 
+     WHERE ME.IDParticipante = Pa.IDParticipante AND ME.Activo = 1) AS MencionesRecibidas,
+    (SELECT STRING_AGG(ME.TipoMencion, ', ') 
+     FROM MencionEspecial ME 
+     WHERE ME.IDParticipante = Pa.IDParticipante AND ME.Activo = 1) AS DetalleMenciones
+FROM AccionSolidaria A
+INNER JOIN Participante Pa ON A.IDParticipante = Pa.IDParticipante AND Pa.Activo = 1
+INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona AND Pe.Activo = 1
+WHERE A.Activo = 1;
+--Muestra las Incripciones Activas
 CREATE VIEW vw_Inscripciones_Activas
 AS
 SELECT
     I.IDInscripcion,
     P.Nombre + ' ' + P.Apellido AS Participante,
+    P.Email AS EmailParticipante,
     C.Nombre AS Curso,
-    I.FechaInscripcion
+    C.FechaInicio,
+    C.FechaFin,
+    I.FechaInscripcion,
+    DATEDIFF(DAY, I.FechaInscripcion, GETDATE()) AS DiasDesdeInscripcion,
+    (SELECT COUNT(*) FROM Asistencia A WHERE A.IDInscripcion = I.IDInscripcion AND A.Presente = 1) AS AsistenciasRegistradas,
+    (SELECT COUNT(*) FROM Asistencia A WHERE A.IDInscripcion = I.IDInscripcion) AS TotalClases
 FROM Inscripcion I
-INNER JOIN Participante Pa ON I.IDParticipante = Pa.IDParticipante
-INNER JOIN Persona P ON Pa.IDPersona = P.IDPersona
-INNER JOIN Cursos C ON I.IDCurso = C.IDCurso
+INNER JOIN Participante Pa ON I.IDParticipante = Pa.IDParticipante AND Pa.Activo = 1
+INNER JOIN Persona P ON Pa.IDPersona = P.IDPersona AND P.Activo = 1
+INNER JOIN Cursos C ON I.IDCurso = C.IDCurso AND C.Activo = 1
 WHERE I.Activo = 1;
--- mustra las acciones solidarias por participante
-CREATE VIEW vw_AccionesSolidarias
-AS
-SELECT
-    Pe.Nombre + ' ' + Pe.Apellido AS Participante,
-    A.NombreAccion,
-    A.Fecha,
-    A.Descripcion
-FROM AccionSolidaria A
-INNER JOIN Participante Pa ON A.IDParticipante = Pa.IDParticipante
-INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona;
