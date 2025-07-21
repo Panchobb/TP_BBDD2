@@ -6,7 +6,7 @@ CREATE PROCEDURE sp_InsertarUsuario
     @Rol NVARCHAR(50)
 AS
 BEGIN
-    BEGIN TRY
+    BEGIN 
        
         IF EXISTS (SELECT 1 FROM Usuario WHERE IDPersona = @IDPersona)
         BEGIN
@@ -21,18 +21,6 @@ BEGIN
             RETURN;
         END
         
-      
-        INSERT INTO Usuario (IDPersona, NombreUsuario, Contraseña, Rol)
-        VALUES (@IDPersona, @NombreUsuario, @Contrasenia, @Rol);
-        
-        RETURN 0; -- Éxito
-    END TRY
-    BEGIN CATCH
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR(@ErrorMessage, 16, 1);
-        RETURN -1; -- Error
-    END CATCH
-END;
 --inscribe un participante 
 CREATE PROCEDURE sp_InscribirParticipante
     @IDParticipante INT,
@@ -40,7 +28,7 @@ CREATE PROCEDURE sp_InscribirParticipante
 AS
 BEGIN
     BEGIN TRY
-        -- Verificar si el participante está activo
+    
         IF NOT EXISTS (
             SELECT 1 FROM Participante P
             INNER JOIN Persona Pe ON P.IDPersona = Pe.IDPersona
@@ -49,74 +37,119 @@ BEGIN
         )
         BEGIN
             RAISERROR('El participante no existe o no está activo.', 16, 1);
-            RETURN;
+            RETURN -1;
         END
         
-        -- Verificar si el curso está activo
-        IF NOT EXISTS (SELECT 1 FROM Cursos WHERE IDCurso = @IDCurso AND Activo = 1)
+        
+        IF NOT EXISTS (
+            SELECT 1 FROM Cursos 
+            WHERE IDCurso = @IDCurso 
+            AND Activo = 1 
+            AND Estado = 'Activo'
+            AND FechaInicio > GETDATE() -- No permitir inscripción a cursos ya iniciados
+        )
         BEGIN
-            RAISERROR('El curso no existe o no está activo.', 16, 1);
-            RETURN;
+            RAISERROR('El curso no está disponible para inscripción.', 16, 1);
+            RETURN -2;
         END
         
-        -- Verificar cupo disponible
-        DECLARE @CupoMaximo INT, @Inscritos INT;
-        SELECT @CupoMaximo = CupoMaximo FROM Cursos WHERE IDCurso = @IDCurso;
-        SELECT @Inscritos = COUNT(*) FROM Inscripcion WHERE IDCurso = @IDCurso AND Activo = 1;
+     
+        DECLARE @CupoDisponible INT;
+        SELECT @CupoDisponible = C.CupoMaximo - COUNT(I.IDInscripcion)
+        FROM Cursos C
+        LEFT JOIN Inscripcion I ON C.IDCurso = I.IDCurso AND I.Activo = 1
+        WHERE C.IDCurso = @IDCurso
+        GROUP BY C.CupoMaximo;
         
-        IF @Inscritos >= @CupoMaximo
+        IF @CupoDisponible <= 0
         BEGIN
             RAISERROR('El curso ha alcanzado su cupo máximo.', 16, 1);
-            RETURN;
+            RETURN -3;
         END
         
-        -- Verificar inscripción duplicada
+        
         IF EXISTS (
             SELECT 1 FROM Inscripcion
             WHERE IDParticipante = @IDParticipante AND IDCurso = @IDCurso
         )
         BEGIN
-            RAISERROR('El participante ya está inscripto en ese curso.', 16, 1);
-            RETURN;
+            -- Si existe pero está inactiva, reactivar en lugar de crear nueva
+            UPDATE Inscripcion 
+            SET Activo = 1, 
+                FechaModificacion = GETDATE()
+            WHERE IDParticipante = @IDParticipante 
+              AND IDCurso = @IDCurso;
+            
+            RETURN 1;
         END
-
-        -- Realizar la inscripción
-        INSERT INTO Inscripcion (IDParticipante, IDCurso)
-        VALUES (@IDParticipante, @IDCurso);
-        
-        RETURN 0; -- Éxito
+        ELSE
+        BEGIN
+           
+            INSERT INTO Inscripcion (IDParticipante, IDCurso, FechaInscripcion, Activo)
+            VALUES (@IDParticipante, @IDCurso, GETDATE(), 1);
+            
+            RETURN 0; 
+        END
     END TRY
     BEGIN CATCH
         DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR(@ErrorMessage, 16, 1);
-        RETURN -1; -- Error
+        RAISERROR('Error en inscripción: %s', 16, 1, @ErrorMessage);
+        RETURN -99; -- Error general
     END CATCH
 END;
-
---Mencio Especial
+--Participante Mencion
 CREATE PROCEDURE sp_ParticipantesMencion
+    @MinimoAcciones INT = 3,  -- Parámetro opcional
+    @SoloConMenciones BIT = 0 -- Parámetro opcional
 AS
 BEGIN
-    SELECT
-        Pe.Nombre + ' ' + Pe.Apellido AS Participante,
-        COUNT(A.IDAccion) AS AccionesSolidarias,
-        STRING_AGG(ME.TipoMencion, ', ') AS MencionesRecibidas
-    FROM Participante Pa
-    INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona
-    LEFT JOIN AccionSolidaria A ON A.IDParticipante = Pa.IDParticipante AND A.Activo = 1
-    LEFT JOIN MencionEspecial ME ON ME.IDParticipante = Pa.IDParticipante AND ME.Activo = 1
-    WHERE
-        (
-            SELECT COUNT(*) FROM AccionSolidaria A2
-            WHERE A2.IDParticipante = Pa.IDParticipante
-            AND A2.Activo = 1
-        ) >= 3
-        AND NOT EXISTS (
-            SELECT 1 FROM Inscripcion I
-            INNER JOIN Asistencia Asis ON Asis.IDInscripcion = I.IDInscripcion
-            WHERE I.IDParticipante = Pa.IDParticipante
-            AND Asis.Presente = 0
-        )
-    GROUP BY Pe.Nombre, Pe.Apellido, Pa.IDParticipante;
+    BEGIN TRY
+        SELECT
+            Pa.IDParticipante,
+            Pe.Nombre + ' ' + Pe.Apellido AS Participante,
+            Pe.Email,
+            COUNT(DISTINCT A.IDAccion) AS TotalAccionesSolidarias,
+            COUNT(DISTINCT CASE WHEN A.Fecha >= DATEADD(MONTH, -6, GETDATE()) 
+                          THEN A.IDAccion END) AS AccionesUltimos6Meses,
+            STRING_AGG(DISTINCT ME.TipoMencion, ', ') AS MencionesRecibidas,
+            COUNT(DISTINCT ME.IDMencion) AS TotalMenciones,
+            (SELECT COUNT(*) FROM Inscripcion I 
+             JOIN Cursos C ON I.IDCurso = C.IDCurso
+             WHERE I.IDParticipante = Pa.IDParticipante 
+             AND I.Activo = 1 
+             AND C.Activo = 1) AS CursosActivos,
+            (SELECT COUNT(*) FROM Asistencia A 
+             JOIN Inscripcion I ON A.IDInscripcion = I.IDInscripcion
+             WHERE I.IDParticipante = Pa.IDParticipante 
+             AND A.Presente = 1) AS TotalAsistencias
+        FROM Participante Pa
+        INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona AND Pe.Activo = 1
+        LEFT JOIN AccionSolidaria A ON A.IDParticipante = Pa.IDParticipante AND A.Activo = 1
+        LEFT JOIN MencionEspecial ME ON ME.IDParticipante = Pa.IDParticipante AND ME.Activo = 1
+        WHERE Pa.Activo = 1
+          AND (
+              SELECT COUNT(*) 
+              FROM AccionSolidaria A2
+              WHERE A2.IDParticipante = Pa.IDParticipante
+              AND A2.Activo = 1
+          ) >= @MinimoAcciones
+          AND NOT EXISTS (
+              SELECT 1 
+              FROM Inscripcion I
+              JOIN Asistencia Asis ON Asis.IDInscripcion = I.IDInscripcion
+              WHERE I.IDParticipante = Pa.IDParticipante
+              AND Asis.Presente = 0
+              AND Asis.Fecha >= DATEADD(MONTH, -12, GETDATE()) -- Solo considerar faltas del último año
+          )
+          AND (@SoloConMenciones = 0 OR ME.IDMencion IS NOT NULL)
+        GROUP BY Pa.IDParticipante, Pe.Nombre, Pe.Apellido, Pe.Email
+        ORDER BY TotalAccionesSolidarias DESC, TotalMenciones DESC;
+        
+        RETURN 0;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('Error al generar reporte: %s', 16, 1, @ErrorMessage);
+        RETURN -1;
+    END CATCH
 END;
-
