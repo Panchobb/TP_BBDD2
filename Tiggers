@@ -19,3 +19,22 @@ BEGIN
     SET FechaModificacion = GETDATE()
     WHERE IDUsuario IN (SELECT IDUsuario FROM inserted);
 END;
+--impide la doble incripcion 
+CREATE TRIGGER trg_EvitarDobleInscripcion
+ON Inscripcion
+INSTEAD OF INSERT
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM Inscripcion I
+        JOIN inserted ins ON I.IDCurso = ins.IDCurso AND I.IDParticipante = ins.IDParticipante
+    )
+    BEGIN
+        RAISERROR('Ya existe una inscripción para ese participante en ese curso.', 16, 1);
+        RETURN;
+    END
+
+    INSERT INTO Inscripcion (IDParticipante, IDCurso)
+    SELECT IDParticipante, IDCurso FROM inserted;
+END;
