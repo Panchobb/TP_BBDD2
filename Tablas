@@ -1,84 +1,82 @@
--- Tabla Persona 
-CREATE TABLE Persona (
-    IDPersona INT PRIMARY KEY AUTO_INCREMENT,
-    Nombre VARCHAR(50) NOT NULL,
-    Apellido VARCHAR(50) NOT NULL,
-    Email VARCHAR(100) UNIQUE,
-    Telefono VARCHAR(20),
-    FechaBaja DATETIME NULL,
-    MotivoBaja VARCHAR(255) NULL
-);
-
--- Tabla Usuario 
 CREATE TABLE Usuario (
-    IDUsuario INT PRIMARY KEY AUTO_INCREMENT,
-    IDPersona INT NOT NULL,
-    NombreUsuario VARCHAR(50) NOT NULL UNIQUE,
-    Contraseña VARCHAR(255) NOT NULL,
-    Rol ENUM('Administrador', 'Profesor', 'Participante') NOT NULL,
-    FechaBaja DATETIME NULL,
-    FOREIGN KEY (IDPersona) REFERENCES Persona(IDPersona)
+    IDUsuario INT PRIMARY KEY IDENTITY(1,1),
+    IDPersona INT UNIQUE NOT NULL,
+    NombreUsuario NVARCHAR(50) UNIQUE NOT NULL,
+    Contraseña NVARCHAR(255) NOT NULL,  -- Recomiendo almacenar hash, no texto plano
+    Rol NVARCHAR(50) NOT NULL,
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
+    FechaModificacion DATETIME DEFAULT GETDATE()
 );
 
--- Tabla Profesor
+CREATE TABLE Persona (
+    IDPersona INT PRIMARY KEY IDENTITY(1,1),
+    Nombre NVARCHAR(100) NOT NULL,
+    Apellido NVARCHAR(100) NOT NULL,
+    Email NVARCHAR(100) UNIQUE NOT NULL,
+    Telefono NVARCHAR(20),
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE()
+);
+
 CREATE TABLE Profesor (
-    IDProfesor INT PRIMARY KEY AUTO_INCREMENT,
+    IDProfesor INT PRIMARY KEY IDENTITY(1,1),
     IDPersona INT NOT NULL,
-    FechaBaja DATETIME NULL,
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDPersona) REFERENCES Persona(IDPersona)
 );
 
--- Tabla Cursos
 CREATE TABLE Cursos (
-    IDCurso INT PRIMARY KEY AUTO_INCREMENT,
+    IDCurso INT PRIMARY KEY IDENTITY(1,1),
     IDProfesor INT NOT NULL,
-    Nombre VARCHAR(100) NOT NULL,
+    Nombre NVARCHAR(100) NOT NULL,
     FechaInicio DATE NOT NULL,
     FechaFin DATE NOT NULL,
-    Horario VARCHAR(50),
+    Horario NVARCHAR(100),
     CupoMaximo INT NOT NULL,
-    Estado ENUM('Activo', 'Inactivo', 'Completado', 'Cancelado') NOT NULL DEFAULT 'Activo',
-    FechaBaja DATETIME NULL,
+    Estado NVARCHAR(20) NOT NULL,
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDProfesor) REFERENCES Profesor(IDProfesor)
 );
 
--- Tabla Participante
 CREATE TABLE Participante (
-    IDParticipante INT PRIMARY KEY AUTO_INCREMENT,
+    IDParticipante INT PRIMARY KEY IDENTITY(1,1),
     IDPersona INT NOT NULL,
-    FechaBaja DATETIME NULL,
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDPersona) REFERENCES Persona(IDPersona)
 );
 
--- Tabla Accion Solidaria
 CREATE TABLE AccionSolidaria (
-    IDAccion INT PRIMARY KEY AUTO_INCREMENT,
+    IDAccion INT PRIMARY KEY IDENTITY(1,1),
     IDParticipante INT NOT NULL,
-    NombreAccion VARCHAR(100) NOT NULL,
+    NombreAccion NVARCHAR(100) NOT NULL,
     Fecha DATE NOT NULL,
-    Descripcion TEXT,
-    FechaBaja DATETIME NULL,
+    Descripcion NVARCHAR(MAX),
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDParticipante) REFERENCES Participante(IDParticipante)
 );
 
--- Tabla Inscripcion
 CREATE TABLE Inscripcion (
-    IDInscripcion INT PRIMARY KEY AUTO_INCREMENT,
+    IDInscripcion INT PRIMARY KEY IDENTITY(1,1),
     IDParticipante INT NOT NULL,
     IDCurso INT NOT NULL,
-    FechaInscripcion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    Estado ENUM('Activa', 'Cancelada', 'Finalizada') NOT NULL DEFAULT 'Activa',
+    FechaInscripcion DATETIME DEFAULT GETDATE(),
+    Activo BIT DEFAULT 1,
     FOREIGN KEY (IDParticipante) REFERENCES Participante(IDParticipante),
     FOREIGN KEY (IDCurso) REFERENCES Cursos(IDCurso),
-    UNIQUE (IDParticipante, IDCurso) -- Evitar inscripciones duplicadas
+    CONSTRAINT UQ_Inscripcion UNIQUE (IDParticipante, IDCurso)
 );
 
--- Tabla Asistencia
 CREATE TABLE Asistencia (
-    IDAsistencia INT PRIMARY KEY AUTO_INCREMENT,
+    IDAsistencia INT PRIMARY KEY IDENTITY(1,1),
     IDInscripcion INT NOT NULL,
     Fecha DATE NOT NULL,
-    Presente BOOLEAN NOT NULL DEFAULT FALSE,
+    Presente BIT NOT NULL,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDInscripcion) REFERENCES Inscripcion(IDInscripcion),
-    UNIQUE (IDInscripcion, Fecha) -- Un registro por inscripción por fecha
+    CONSTRAINT UQ_Asistencia UNIQUE (IDInscripcion, Fecha)
 );
