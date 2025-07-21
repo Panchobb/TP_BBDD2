@@ -4,37 +4,120 @@ ON Usuario
 INSTEAD OF DELETE
 AS
 BEGIN
-    UPDATE Usuario
-    SET Activo = 0,
-        FechaModificacion = GETDATE()
-    WHERE IDUsuario IN (SELECT IDUsuario FROM deleted);
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        -- Registrar historial antes de la baja (opcional)
+        INSERT INTO HistorialBajas (Tabla, IDRegistro, FechaBaja, UsuarioBaja)
+        SELECT 'Usuario', IDUsuario, GETDATE(), SYSTEM_USER
+        FROM deleted;
+        
+        -- Realizar baja lógica
+        UPDATE U
+        SET U.Activo = 0,
+            U.FechaModificacion = GETDATE()
+        FROM Usuario U
+        INNER JOIN deleted d ON U.IDUsuario = d.IDUsuario;
+        
+        -- Opcional: Dar de baja también la persona asociada
+        UPDATE P
+        SET P.Activo = 0
+        FROM Persona P
+        INNER JOIN deleted d ON P.IDUsuario = d.IDUsuario;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('Error en baja lógica de usuario: %s', 16, 1, @ErrorMessage);
+    END CATCH
 END;
--- Actualiza la fecha de modificacion
-CREATE TRIGGER trg_ActualizacionFechaModificacion
-ON Usuario
-AFTER UPDATE
-AS
-BEGIN
-    UPDATE Usuario
-    SET FechaModificacion = GETDATE()
-    WHERE IDUsuario IN (SELECT IDUsuario FROM inserted);
-END;
+
 --impide la doble incripcion 
 CREATE TRIGGER trg_EvitarDobleInscripcion
 ON Inscripcion
 INSTEAD OF INSERT
 AS
 BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM Inscripcion I
-        JOIN inserted ins ON I.IDCurso = ins.IDCurso AND I.IDParticipante = ins.IDParticipante
-    )
-    BEGIN
-        RAISERROR('Ya existe una inscripción para ese participante en ese curso.', 16, 1);
-        RETURN;
-    END
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        -- Verificar si el curso está activo
+        IF EXISTS (
+            SELECT 1 
+            FROM inserted i
+            JOIN Cursos c ON i.IDCurso = c.IDCurso
+            WHERE c.Activo = 0
+        )
+        BEGIN
+            RAISERROR('No se puede inscribir a un curso inactivo.', 16, 1);
+            RETURN;
+        END
+        
+        -- Verificar si el participante está activo
+        IF EXISTS (
+            SELECT 1 
+            FROM inserted i
+            JOIN Participante p ON i.IDParticipante = p.IDParticipante
+            JOIN Persona pe ON p.IDPersona = pe.IDPersona
+            WHERE p.Activo = 0 OR pe.Activo = 0
+        )
+        BEGIN
+            RAISERROR('No se puede inscribir a un participante inactivo.', 16, 1);
+            RETURN;
+        END
+        
+        -- Verificar cupo disponible
+        IF EXISTS (
+            SELECT 1
+            FROM inserted i
+            JOIN Cursos c ON i.IDCurso = c.IDCurso
+            JOIN (
+                SELECT IDCurso, COUNT(*) AS Inscritos
+                FROM Inscripcion
+                WHERE Activo = 1
+                GROUP BY IDCurso
+            ) cnt ON c.IDCurso = cnt.IDCurso
+            WHERE cnt.Inscritos >= c.CupoMaximo
+        )
+        BEGIN
+            RAISERROR('El curso ha alcanzado su cupo máximo.', 16, 1);
+            RETURN;
+        END
+        
+        -- Verificar inscripciones duplicadas
+        IF EXISTS (
+            SELECT 1
+            FROM Inscripcion I
+            JOIN inserted ins ON I.IDCurso = ins.IDCurso AND I.IDParticipante = ins.IDParticipante
+            WHERE I.Activo = 1
+        )
+        BEGIN
+            RAISERROR('Ya existe una inscripción activa para ese participante en ese curso.', 16, 1);
+            RETURN;
+        END
 
-    INSERT INTO Inscripcion (IDParticipante, IDCurso)
-    SELECT IDParticipante, IDCurso FROM inserted;
+        -- Insertar nuevas inscripciones
+        INSERT INTO Inscripcion (IDParticipante, IDCurso)
+        SELECT IDParticipante, IDCurso FROM inserted;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('Error en inscripción: %s', 16, 1, @ErrorMessage);
+    END CATCH
+END;
+--Actualizacion de FechadeModificacion
+CREATE TRIGGER trg_ActualizacionFechaModificacion
+ON Usuario
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Solo actualizar si realmente hubo cambios en campos relevantes
+    IF UPDATE(NombreUsuario) OR UPDATE(Contraseña) OR UPDATE(Rol) OR UPDATE(Activo)
+    BEGIN
+        UPDATE U
+        SET FechaModificacion = GETDATE()
+        FROM Usuario U
+        INNER JOIN inserted i ON U.IDUsuario = i.IDUsuario;
+    END
 END;
