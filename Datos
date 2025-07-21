@@ -1,0 +1,50 @@
+-- 1. Insertar Personas
+INSERT INTO Persona (Nombre, Apellido, Email, Telefono) VALUES
+('Juan', 'Pérez', 'juan.perez@email.com', '555-1234'),
+('María', 'Gómez', 'maria.gomez@email.com', '555-5678'),
+('Carlos', 'López', 'carlos.lopez@email.com', '555-9012'),
+('Ana', 'Martínez', 'ana.martinez@email.com', '555-3456'),
+('Luis', 'Rodríguez', 'luis.rodriguez@email.com', '555-7890');
+
+-- 2. Insertar Usuarios
+INSERT INTO Usuario (IDPersona, NombreUsuario, Contraseña, Rol) VALUES
+(1, 'jperez', SHA2('admin123', 256), 'Administrador'),
+(2, 'mgomez', SHA2('prof123', 256), 'Profesor'),
+(3, 'clopez', SHA2('prof456', 256), 'Profesor'),
+(4, 'amartinez', SHA2('parti123', 256), 'Participante'),
+(5, 'lrodriguez', SHA2('parti456', 256), 'Participante');
+
+-- 3. Insertar Profesores
+INSERT INTO Profesor (IDPersona) VALUES
+(2), -- María Gómez
+(3); -- Carlos López
+
+-- 4. Insertar Participantes
+INSERT INTO Participante (IDPersona) VALUES
+(4), -- Ana Martínez
+(5); -- Luis Rodríguez
+
+-- 5. Insertar Cursos
+INSERT INTO Cursos (IDProfesor, Nombre, FechaInicio, FechaFin, Horario, CupoMaximo, Estado) VALUES
+(1, 'Introducción a la Programación', '2023-09-01', '2023-12-15', 'Lunes y Miércoles 18:00-20:00', 20, 'Activo'),
+(1, 'Bases de Datos', '2023-09-05', '2023-12-20', 'Martes y Jueves 16:00-18:00', 15, 'Activo'),
+(2, 'Diseño Web', '2023-10-01', '2024-01-10', 'Viernes 14:00-18:00', 10, 'Activo');
+
+-- 6. Insertar Acciones Solidarias
+INSERT INTO AccionSolidaria (IDParticipante, NombreAccion, Fecha, Descripcion) VALUES
+(1, 'Recolección de alimentos', '2023-08-15', 'Recolección para comedor comunitario'),
+(1, 'Taller de reciclaje', '2023-09-10', 'Taller educativo para niños'),
+(2, 'Limpieza de playas', '2023-10-05', 'Jornada de limpieza costera');
+
+-- 7. Insertar Inscripciones
+INSERT INTO Inscripcion (IDParticipante, IDCurso, FechaInscripcion) VALUES
+(1, 1, '2023-08-20 10:00:00'), -- Ana en Introducción a la Programación
+(1, 2, '2023-08-21 11:30:00'), -- Ana en Bases de Datos
+(2, 3, '2023-08-22 09:15:00'); -- Luis en Diseño Web
+
+-- 8. Insertar Asistencias
+INSERT INTO Asistencia (IDInscripcion, Fecha, Presente) VALUES
+(1, '2023-09-04', TRUE),  -- Ana presente el 4/9
+(1, '2023-09-06', FALSE), -- Ana ausente el 6/9
+(2, '2023-09-05', TRUE),  -- Ana presente el 5/9 (otro curso)
+(3, '2023-10-06', TRUE);  -- Luis presente el 6/10
