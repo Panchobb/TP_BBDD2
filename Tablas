@@ -11,11 +11,13 @@ CREATE TABLE Usuario (
 
 CREATE TABLE Persona (
     IDPersona INT PRIMARY KEY IDENTITY(1,1),
+    IDUsuario INT
     Nombre NVARCHAR(100) NOT NULL,
     Apellido NVARCHAR(100) NOT NULL,
     Email NVARCHAR(100) UNIQUE NOT NULL,
     Telefono NVARCHAR(20),
     Activo BIT DEFAULT 1,
+    FOREIGN KEY (IDUsuario) REFERENCES Usuario(IDUsuario)
 );
 
 CREATE TABLE Profesor (
