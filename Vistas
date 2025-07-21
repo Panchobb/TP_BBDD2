@@ -24,3 +24,14 @@ INNER JOIN Participante Pa ON I.IDParticipante = Pa.IDParticipante
 INNER JOIN Persona P ON Pa.IDPersona = P.IDPersona
 INNER JOIN Cursos C ON I.IDCurso = C.IDCurso
 WHERE I.Activo = 1;
+-- mustra las acciones solidarias por participante
+CREATE VIEW vw_AccionesSolidarias
+AS
+SELECT
+    Pe.Nombre + ' ' + Pe.Apellido AS Participante,
+    A.NombreAccion,
+    A.Fecha,
+    A.Descripcion
+FROM AccionSolidaria A
+INNER JOIN Participante Pa ON A.IDParticipante = Pa.IDParticipante
+INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona;
