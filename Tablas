@@ -2,7 +2,7 @@ CREATE TABLE Usuario (
     IDUsuario INT PRIMARY KEY IDENTITY(1,1),
     IDPersona INT UNIQUE NOT NULL,
     NombreUsuario NVARCHAR(50) UNIQUE NOT NULL,
-    Contraseña NVARCHAR(255) NOT NULL,  -- Recomiendo almacenar hash, no texto plano
+    Contraseña NVARCHAR(255) NOT NULL, 
     Rol NVARCHAR(50) NOT NULL,
     Activo BIT DEFAULT 1,
     FechaCreacion DATETIME DEFAULT GETDATE(),
@@ -16,14 +16,12 @@ CREATE TABLE Persona (
     Email NVARCHAR(100) UNIQUE NOT NULL,
     Telefono NVARCHAR(20),
     Activo BIT DEFAULT 1,
-    FechaCreacion DATETIME DEFAULT GETDATE()
 );
 
 CREATE TABLE Profesor (
     IDProfesor INT PRIMARY KEY IDENTITY(1,1),
     IDPersona INT NOT NULL,
     Activo BIT DEFAULT 1,
-    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDPersona) REFERENCES Persona(IDPersona)
 );
 
@@ -37,7 +35,6 @@ CREATE TABLE Cursos (
     CupoMaximo INT NOT NULL,
     Estado NVARCHAR(20) NOT NULL,
     Activo BIT DEFAULT 1,
-    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDProfesor) REFERENCES Profesor(IDProfesor)
 );
 
@@ -45,7 +42,6 @@ CREATE TABLE Participante (
     IDParticipante INT PRIMARY KEY IDENTITY(1,1),
     IDPersona INT NOT NULL,
     Activo BIT DEFAULT 1,
-    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDPersona) REFERENCES Persona(IDPersona)
 );
 
@@ -56,7 +52,6 @@ CREATE TABLE AccionSolidaria (
     Fecha DATE NOT NULL,
     Descripcion NVARCHAR(MAX),
     Activo BIT DEFAULT 1,
-    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDParticipante) REFERENCES Participante(IDParticipante)
 );
 
@@ -64,7 +59,6 @@ CREATE TABLE Inscripcion (
     IDInscripcion INT PRIMARY KEY IDENTITY(1,1),
     IDParticipante INT NOT NULL,
     IDCurso INT NOT NULL,
-    FechaInscripcion DATETIME DEFAULT GETDATE(),
     Activo BIT DEFAULT 1,
     FOREIGN KEY (IDParticipante) REFERENCES Participante(IDParticipante),
     FOREIGN KEY (IDCurso) REFERENCES Cursos(IDCurso),
@@ -76,7 +70,14 @@ CREATE TABLE Asistencia (
     IDInscripcion INT NOT NULL,
     Fecha DATE NOT NULL,
     Presente BIT NOT NULL,
-    FechaCreacion DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (IDInscripcion) REFERENCES Inscripcion(IDInscripcion),
     CONSTRAINT UQ_Asistencia UNIQUE (IDInscripcion, Fecha)
+);
+CREATE TABLE MencionEspecial (
+    IDMencion INT PRIMARY KEY IDENTITY(1,1),
+    IDParticipante INT NOT NULL,
+    TipoMencion NVARCHAR(100) NOT NULL,
+    FechaOtorgamiento DATE NOT NULL,
+    Activo BIT DEFAULT 1,
+    FOREIGN KEY (IDParticipante) REFERENCES Participante(IDParticipante)
 );
