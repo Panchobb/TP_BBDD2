@@ -16,6 +16,7 @@ FROM Cursos C
 INNER JOIN Profesor Pr ON C.IDProfesor = Pr.IDProfesor AND Pr.Activo = 1
 INNER JOIN Persona P ON Pr.IDPersona = P.IDPersona AND P.Activo = 1
 WHERE C.Activo = 1;
+
 -- mustra las acciones solidarias por participante
 CREATE VIEW vw_AccionesSolidarias
 AS
@@ -36,6 +37,7 @@ FROM AccionSolidaria A
 INNER JOIN Participante Pa ON A.IDParticipante = Pa.IDParticipante AND Pa.Activo = 1
 INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona AND Pe.Activo = 1
 WHERE A.Activo = 1;
+
 --Muestra las Incripciones Activas
 CREATE VIEW vw_Inscripciones_Activas
 AS
