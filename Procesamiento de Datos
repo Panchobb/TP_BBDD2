@@ -30,3 +30,21 @@ BEGIN
             AND Asis.Presente = 0
         );
 END;
+--inscribe un participante 
+CREATE PROCEDURE sp_InscribirParticipante
+    @IDParticipante INT,
+    @IDCurso INT
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM Inscripcion
+        WHERE IDParticipante = @IDParticipante AND IDCurso = @IDCurso
+    )
+    BEGIN
+        RAISERROR('El participante ya está inscripto en ese curso.', 16, 1);
+        RETURN;
+    END
+
+    INSERT INTO Inscripcion (IDParticipante, IDCurso)
+    VALUES (@IDParticipante, @IDCurso);
+END;
