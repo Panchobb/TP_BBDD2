@@ -1,0 +1,32 @@
+-- agregar nuevo usuario
+CREATE PROCEDURE sp_InsertarUsuario
+    @IDPersona INT,
+    @NombreUsuario NVARCHAR(50),
+    @Contrasenia NVARCHAR(255),
+    @Rol NVARCHAR(50)
+AS
+BEGIN
+    INSERT INTO Usuario (IDPersona, NombreUsuario, Contraseña, Rol)
+    VALUES (@IDPersona, @NombreUsuario, @Contrasenia, @Rol)
+END;
+-- busca y muestra participantes con menciones
+CREATE PROCEDURE sp_ParticipantesMencion
+AS
+BEGIN
+    SELECT
+        Pe.Nombre + ' ' + Pe.Apellido AS Participante
+    FROM Participante Pa
+    INNER JOIN Persona Pe ON Pa.IDPersona = Pe.IDPersona
+    WHERE
+        (
+            SELECT COUNT(*) FROM AccionSolidaria A
+            WHERE A.IDParticipante = Pa.IDParticipante
+            AND A.Activo = 1
+        ) >= 3
+        AND NOT EXISTS (
+            SELECT 1 FROM Inscripcion I
+            INNER JOIN Asistencia Asis ON Asis.IDInscripcion = I.IDInscripcion
+            WHERE I.IDParticipante = Pa.IDParticipante
+            AND Asis.Presente = 0
+        );
+END;
