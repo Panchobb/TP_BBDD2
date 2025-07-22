@@ -48,8 +48,6 @@ SELECT
     C.Nombre AS Curso,
     C.FechaInicio,
     C.FechaFin,
-    I.FechaInscripcion,
-    DATEDIFF(DAY, I.FechaInscripcion, GETDATE()) AS DiasDesdeInscripcion,
     (SELECT COUNT(*) FROM Asistencia A WHERE A.IDInscripcion = I.IDInscripcion AND A.Presente = 1) AS AsistenciasRegistradas,
     (SELECT COUNT(*) FROM Asistencia A WHERE A.IDInscripcion = I.IDInscripcion) AS TotalClases
 FROM Inscripcion I
