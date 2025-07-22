@@ -1,25 +1,53 @@
 -- agregar nuevo usuario
-CREATE PROCEDURE sp_InsertarUsuario
+CREATE OR ALTER PROCEDURE sp_InsertarUsuario
     @IDPersona INT,
     @NombreUsuario NVARCHAR(50),
     @Contrasenia NVARCHAR(255),
     @Rol NVARCHAR(50)
 AS
 BEGIN
-    BEGIN 
-       
+    BEGIN TRY
+        -- Verificar si la persona existe
+        IF NOT EXISTS (SELECT 1 FROM Persona WHERE IDPersona = @IDPersona AND Activo = 1)
+        BEGIN
+            RAISERROR('La persona especificada no existe o no está activa.', 16, 1);
+            RETURN -1;
+        END
+        
+        -- Verificar si el IDPersona ya tiene usuario
         IF EXISTS (SELECT 1 FROM Usuario WHERE IDPersona = @IDPersona)
         BEGIN
             RAISERROR('Esta persona ya tiene un usuario asociado.', 16, 1);
-            RETURN;
+            RETURN -2;
         END
         
-       
+        -- Verificar si el nombre de usuario ya existe
         IF EXISTS (SELECT 1 FROM Usuario WHERE NombreUsuario = @NombreUsuario)
         BEGIN
             RAISERROR('El nombre de usuario ya está en uso.', 16, 1);
-            RETURN;
+            RETURN -3;
         END
+        
+        -- Validar rol permitido
+        IF @Rol NOT IN ('Administrador', 'Profesor', 'Participante', 'Recepcionista')
+        BEGIN
+            RAISERROR('El rol especificado no es válido.', 16, 1);
+            RETURN -4;
+        END
+        
+        -- Insertar el nuevo usuario
+        INSERT INTO Usuario (IDPersona, NombreUsuario, Contraseña, Rol, Activo, FechaCreacion, FechaModificacion)
+        VALUES (@IDPersona, @NombreUsuario, @Contrasenia, @Rol, 1, GETDATE(), GETDATE());
+        
+        RETURN 0; -- Éxito
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('Error al crear usuario: %s', 16, 1, @ErrorMessage);
+        RETURN -99; -- Error general
+    END CATCH
+END;
+
         
 --inscribe un participante 
 CREATE PROCEDURE sp_InscribirParticipante
@@ -97,10 +125,9 @@ BEGIN
         RETURN -99; -- Error general
     END CATCH
 END;
---Participante Mencion
-CREATE PROCEDURE sp_ParticipantesMencion
-    @MinimoAcciones INT = 3,  -- Parámetro opcional
-    @SoloConMenciones BIT = 0 -- Parámetro opcional
+CREATE OR ALTER PROCEDURE sp_ParticipantesMencion
+    @MinimoAcciones INT = 3,
+    @SoloConMenciones BIT = 0
 AS
 BEGIN
     BEGIN TRY
@@ -111,7 +138,15 @@ BEGIN
             COUNT(DISTINCT A.IDAccion) AS TotalAccionesSolidarias,
             COUNT(DISTINCT CASE WHEN A.Fecha >= DATEADD(MONTH, -6, GETDATE()) 
                           THEN A.IDAccion END) AS AccionesUltimos6Meses,
-            STRING_AGG(DISTINCT ME.TipoMencion, ', ') AS MencionesRecibidas,
+            -- Solución compatible con todas las versiones de SQL Server
+            STUFF((
+                SELECT ', ' + ME2.TipoMencion
+                FROM MencionEspecial ME2
+                WHERE ME2.IDParticipante = Pa.IDParticipante 
+                AND ME2.Activo = 1
+                ORDER BY ME2.TipoMencion  -- ORDER BY permitido aquí por el FOR XML
+                FOR XML PATH('')
+            ), 1, 2, '') AS MencionesRecibidas,
             COUNT(DISTINCT ME.IDMencion) AS TotalMenciones,
             (SELECT COUNT(*) FROM Inscripcion I 
              JOIN Cursos C ON I.IDCurso = C.IDCurso
@@ -139,7 +174,7 @@ BEGIN
               JOIN Asistencia Asis ON Asis.IDInscripcion = I.IDInscripcion
               WHERE I.IDParticipante = Pa.IDParticipante
               AND Asis.Presente = 0
-              AND Asis.Fecha >= DATEADD(MONTH, -12, GETDATE()) -- Solo considerar faltas del último año
+              AND Asis.Fecha >= DATEADD(MONTH, -12, GETDATE())
           )
           AND (@SoloConMenciones = 0 OR ME.IDMencion IS NOT NULL)
         GROUP BY Pa.IDParticipante, Pe.Nombre, Pe.Apellido, Pe.Email
