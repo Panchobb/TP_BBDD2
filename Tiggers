@@ -94,14 +94,18 @@ BEGIN
             RAISERROR('Ya existe una inscripción activa para ese participante en ese curso.', 16, 1);
             RETURN;
         END
-
-        -- Insertar nuevas inscripciones
-        INSERT INTO Inscripcion (IDParticipante, IDCurso)
-        SELECT IDParticipante, IDCurso FROM inserted;
+        
+        -- Si pasa todas las validaciones, realizar la inserción
+        INSERT INTO Inscripcion (IDParticipante, IDCurso, Activo)
+        SELECT IDParticipante, IDCurso, 1 -- Activo = 1
+        FROM inserted;
     END TRY
     BEGIN CATCH
         DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR('Error en inscripción: %s', 16, 1, @ErrorMessage);
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        
+        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
     END CATCH
 END;
 --Actualizacion de FechadeModificacion
